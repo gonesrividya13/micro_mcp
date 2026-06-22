@@ -7,11 +7,17 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Deploy micro_mcp to Raspberry Pi")
 parser.add_argument("--mqtt", action="store_true", help="Compile and run the MQTT example instead of TCP")
+parser.add_argument("--host", default=os.environ.get("MICRO_MCP_HOST"), help="Raspberry Pi hostname/IP (or env var MICRO_MCP_HOST)")
+parser.add_argument("--user", "-u", default=os.environ.get("MICRO_MCP_USER"), help="SSH username (or env var MICRO_MCP_USER)")
+parser.add_argument("--password", "-p", default=os.environ.get("MICRO_MCP_PASSWORD"), help="SSH/Sudo password (or env var MICRO_MCP_PASSWORD)")
 args = parser.parse_args()
 
-host = "192.168.1.133"
-user = "vidya"
-password = "130699"
+if not args.host or not args.user or not args.password:
+    parser.error("Host, user, and password are required. Provide them via CLI arguments or environment variables (MICRO_MCP_HOST, MICRO_MCP_USER, MICRO_MCP_PASSWORD).")
+
+host = args.host
+user = args.user
+password = args.password
 
 print("Creating local tarball...")
 subprocess.run("tar --exclude='build' --exclude='__pycache__' --exclude='.git' -czf payload.tar.gz .", shell=True, check=True)

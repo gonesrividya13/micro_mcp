@@ -126,10 +126,10 @@ int main(int argc, char* argv[]) {
 For rapid iteration on Linux-based IoT devices like a Raspberry Pi, we have included automated Python scripts to seamlessly deploy and test your entire fleet over SSH.
 
 1. **Deploy a Massive Fleet**:
-   On your local machine, run the deploy script with the MQTT flag:
+   On your local machine, you must provide your Raspberry Pi's SSH credentials via CLI arguments or environment variables (`MICRO_MCP_HOST`, `MICRO_MCP_USER`, `MICRO_MCP_PASSWORD`):
    ```bash
    pip install paramiko scp
-   python3 deploy.py --mqtt
+   python3 deploy.py --mqtt --host 192.168.1.133 --user vidya --password yourpassword
    ```
    *This automatically installs `libmosquitto-dev` on the Pi, compiles the C++ server, and simultaneously spawns 5 separate background IoT daemons (`livingroom-light`, `kitchen-thermostat`, etc.) to prove the massive concurrency capabilities of the Hub Adapter.*
 
