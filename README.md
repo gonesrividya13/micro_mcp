@@ -1,5 +1,7 @@
 # micro_mcp 🚀
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 `micro_mcp` is an extremely lightweight, memory-efficient C++ implementation of the **Model Context Protocol (MCP)** specifically designed for IoT devices and microcontrollers (like ESP32, Arduino, and Pico). 
 
 It allows your local AI agents (e.g., Claude Desktop or custom agents) to seamlessly discover, read sensors from, and actuate your IoT devices over a local network.
@@ -142,3 +144,9 @@ For rapid iteration on Linux-based IoT devices like a Raspberry Pi, we have incl
 - `/src/`: The C++ implementations, Transports (TCP/MQTT), and generated nanopb code.
 - `/hub_adapter/`: The Python asyncio proxies (`tcp_adapter.py`, `mqtt_adapter.py`, `mcp_aggregator.py`).
 - `/examples/`: Simulated examples of how to run the library.
+
+---
+
+## 📄 License
+
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
