@@ -58,6 +58,16 @@ class MqttAdapter:
         topic = f"mcp/{device_id}/rx"
         self.client.publish(topic, data, qos=0)
 
+    async def broadcast_heartbeat(self):
+        while True:
+            await asyncio.sleep(10)
+            ping = mcp_pb2.McpMessage()
+            ping.id = 999999
+            ping.init_req.protocol_version = "2024-11-05"
+            ping.init_req.client_name = "HubHeartbeat"
+            ping.init_req.client_version = "1.0"
+            self.client.publish("mcp/broadcast/rx", ping.SerializeToString(), qos=0)
+
     def stdin_reader(self):
         for line in sys.stdin:
             if self.loop is not None:
@@ -76,6 +86,10 @@ class MqttAdapter:
 
         # Start stdin reader thread
         threading.Thread(target=self.stdin_reader, daemon=True).start()
+
+        # Start heartbeat and pruning loops
+        asyncio.create_task(self.broadcast_heartbeat())
+        asyncio.create_task(self.aggregator.prune_stale_devices())
 
         while True:
             line = await self.stdin_queue.get()

@@ -3,6 +3,7 @@ import sys
 import asyncio
 from typing import Dict, Any, Callable, Awaitable
 import mcp_pb2
+import time
 
 class DeviceInfo:
     def __init__(self, device_id: str):
@@ -10,6 +11,7 @@ class DeviceInfo:
         self.tools = []
         self.resources = []
         self.initialized = False
+        self.last_seen = time.time()
 
 class McpAggregator:
     def __init__(self, send_protobuf_cb: Callable[[str, mcp_pb2.McpMessage], Awaitable[None]]):
@@ -56,12 +58,33 @@ class McpAggregator:
         if device_id in self.devices:
             del self.devices[device_id]
             print(f"Aggregator: Removed device '{device_id}'", file=sys.stderr)
+            
+            # Notify the MCP client (Antigravity/Claude) that the tools list has changed
+            notification = {
+                "jsonrpc": "2.0",
+                "method": "notifications/tools/list_changed"
+            }
+            print(json.dumps(notification), flush=True)
+
+    async def prune_stale_devices(self):
+        while True:
+            await asyncio.sleep(5)
+            now = time.time()
+            stale_devices = []
+            for device_id, dev in self.devices.items():
+                if now - dev.last_seen > 25:
+                    stale_devices.append(device_id)
+            
+            for device_id in stale_devices:
+                print(f"Aggregator: Device '{device_id}' missed heartbeats. Pruning...", file=sys.stderr)
+                self.remove_device(device_id)
 
     def handle_device_message(self, device_id: str, res_msg: mcp_pb2.McpMessage):
         if device_id not in self.devices:
             return
             
         dev = self.devices[device_id]
+        dev.last_seen = time.time()
         which = res_msg.WhichOneof("message_type")
         
         # Check if this was an internal request (id >= 1000000)
