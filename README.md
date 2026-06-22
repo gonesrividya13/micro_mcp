@@ -6,48 +6,85 @@ It allows your local AI agents (e.g., Claude Desktop or custom agents) to seamle
 
 ---
 
-## 🏗️ Architecture & Visual Connection
+## 🏗️ Architecture & Massive Concurrency
 
-Because standard MCP relies on parsing bulky JSON strings over `stdio`, it can quickly exhaust the RAM of a tiny microcontroller. 
+Because standard MCP relies on parsing bulky JSON strings over `stdio`, it can quickly exhaust the RAM of a tiny microcontroller. To solve this, `micro_mcp` uses **Protocol Buffers** to send highly compressed binary messages. 
 
-To solve this, `micro_mcp` uses **Protocol Buffers** to send highly compressed binary messages over a TCP socket. A lightweight Python **Hub Adapter** runs on your Agent Hub (your laptop or server) to automatically translate these binary messages back into standard JSON-RPC MCP that your AI agents understand.
+To bridge these devices to your AI agent, a highly concurrent Python **Hub Adapter** runs on your Agent Hub (your laptop or server). The Hub Adapter dynamically discovers hundreds of IoT devices, maintains active connections via `asyncio`, and aggregates all their tools and resources into a single standard JSON-RPC MCP endpoint that your AI agents understand.
 
 ```mermaid
 graph LR
-    subgraph "IoT Device (e.g., ESP32)"
-        Sensors[Hardware Sensors/LEDs] <--> MicroServer(micro_mcp C++ Server)
-        MicroServer -.->|Broadcasts| mDNS((mDNS _micro_mcp._tcp))
+    subgraph "IoT Network"
+        D1[Device 1]
+        D2[Device 2]
+        Dn[Device N]
     end
     
     subgraph "Agent Hub (Laptop/Server)"
-        Adapter(Hub Adapter proxy) <-->|JSON-RPC via stdio| Agent[AI Agent]
+        Adapter(Async Hub Adapter) <-->|JSON-RPC via stdio| Agent[AI Agent]
     end
     
-    mDNS -.->|Autodiscovery| Adapter
-    MicroServer <==>|Protobuf over TCP Socket| Adapter
+    D1 -.->|mDNS + TCP Socket| Adapter
+    D2 -.->|mDNS + TCP Socket| Adapter
+    Dn -.->|MQTT Topic| Adapter
 ```
 
 ---
 
 ## 🛠️ Features
 
-- **Abstract Transports:** Pure virtual `Transport` interface so you can run it over Wi-Fi (TCP), Serial, or MQTT.
-- **Zero JSON Parsing:** All serialization is done via statically allocated Protocol Buffers (`nanopb`), keeping memory usage tiny and predictable.
-- **Automatic Network Discovery:** Built-in mDNS support means your Hub Adapter automatically finds devices on the network.
-- **Full MCP Support:** Expose both **Tools** (actuators) and **Resources** (sensors).
+- **Massive Scalability:** The Python Hub automatically routes and aggregates requests across hundreds of IoT devices simultaneously using `asyncio` and `zeroconf` (mDNS).
+- **Abstract Transports:** Pure virtual `Transport` interface so you can run it over Wi-Fi (TCP), Serial, or MQTT. We provide `PosixTcpTransport` and `PosixMqttTransport` out of the box!
+- **Zero JSON Parsing:** All serialization is done via statically allocated Protocol Buffers (`nanopb`), keeping memory usage tiny and predictable on the C++ side.
+- **MCP Aggregation:** The AI Agent sees the Hub as a *single* MCP Server, but gets access to the tools and resources of every connected device!
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Flash the IoT Device (C++)
+### 1. Run the Hub Adapter
 
-Include the library in your C++ project. Here is how easy it is to expose a smart bulb to an AI agent:
+On your local machine (where your AI agent lives), install the asyncio dependencies for the bridge:
+
+```bash
+cd hub_adapter
+pip install grpcio-tools protobuf zeroconf paho-mqtt
+```
+
+Choose the adapter that matches your infrastructure:
+
+- **TCP Adapter (`tcp_adapter.py`)**: Best for standard Wi-Fi setups. Automatically discovers `micro_mcp` devices broadcasting mDNS on your local network and opens asynchronous TCP sockets.
+- **MQTT Adapter (`mqtt_adapter.py`)**: Best for massive IoT scale. Connects to an MQTT broker (like Mosquitto) and subscribes to the `mcp/+/tx` topic, requiring no direct network connections to the devices.
+
+### 2. Connect your AI Agent
+
+Configure your AI Agent (like Claude Desktop or Antigravity) to use the Hub Adapter.
+
+**Antigravity (`mcp_config.json`) / Claude Desktop (`claude_desktop_config.json`):**
+```json
+{
+  "mcpServers": {
+    "iot-hub": {
+      "command": "python3",
+      "args": [
+        "/path/to/micro_mcp/hub_adapter/mqtt_adapter.py",
+        "192.168.1.133",
+        "1883"
+      ]
+    }
+  }
+}
+```
+
+*Note on Dynamic Tools:* Because IoT networks are highly dynamic, the Hub Adapter utilizes MCP's `notifications/tools/list_changed` JSON-RPC event. When the Hub adapter boots, it fires a massive global ping to `mcp/broadcast/rx`. As the microcontrollers wake up and reply, the Hub dynamically injects their tools into your AI Agent in real-time!
+
+### 3. Flash the IoT Device (C++)
+
+Include the library in your C++ project. Here is how easy it is to expose a smart bulb to an AI agent over MQTT:
 
 ```cpp
 #include <micro_mcp/server.h>
-#include <micro_mcp/transport/posix_tcp_transport.h>
-#include <ESPmDNS.h> // Example for ESP32
+#include <micro_mcp/transport/posix_mqtt_transport.h>
 
 using namespace micro_mcp;
 
@@ -56,20 +93,17 @@ bool led_state = false;
 // 1. Define your hardware function
 std::string toggle_led(const std::string& args_json) {
     led_state = !led_state;
-    digitalWrite(LED_PIN, led_state ? HIGH : LOW);
     return "{\"status\": \"success\"}";
 }
 
-void setup() {
-    // ... connect to WiFi ...
+int main(int argc, char* argv[]) {
+    std::string device_name = (argc > 1) ? argv[1] : "smart-bulb";
 
-    // 2. Broadcast the device to the network
-    MDNS.begin("smart-bulb");
-    MDNS.addService("micro_mcp", "tcp", 5000);
-
-    // 3. Start the Server and register tools
-    static Server server("smart-bulb", "1.0.0");
-    static PosixTcpTransport transport(5000);
+    // 2. Start the Server and register tools
+    static Server server(device_name, "1.0.0");
+    
+    // Use the MQTT Transport connecting to your local broker
+    static PosixMqttTransport transport(device_name, "192.168.1.133", 1883);
     
     transport.begin();
     server.set_transport(&transport);
@@ -80,108 +114,24 @@ void setup() {
         "{\"type\": \"object\", \"properties\": {}}", 
         toggle_led
     );
-}
 
-void loop() {
-    server.poll(); // Keep the MCP connection alive
-}
-```
-
-### 2. Run the Hub Adapter
-
-On your local machine (where your AI agent lives), install the requirements for the bridge:
-
-```bash
-cd hub_adapter
-pip install grpcio-tools protobuf zeroconf
-```
-
-### 3. Connect your AI Agent
-
-Configure your AI Agent (like Claude Desktop) to use the Hub Adapter. 
-
-If your IoT device is broadcasting mDNS (as shown in the code above), you don't even need to provide an IP address. Just run the adapter!
-
-**`claude_desktop_config.json`:**
-```json
-{
-  "mcpServers": {
-    "iot-bulb": {
-      "command": "python3",
-      "args": [
-        "/path/to/micro_mcp/hub_adapter/adapter.py"
-      ]
+    while (true) {
+        server.poll(); // Automatically handles broadcast pings and MCP protocol
     }
-  }
 }
 ```
 
-If you aren't using mDNS, you can easily hardcode the IP and port:
-```json
-      "args": [
-        "/path/to/micro_mcp/hub_adapter/adapter.py",
-        "192.168.1.100",
-        "5000"
-      ]
-```
+### 4. Automated Deployment & Testing (Raspberry Pi)
 
-### 4. Try it Manually (Example Deployment)
+For rapid iteration on Linux-based IoT devices like a Raspberry Pi, we have included automated Python scripts to seamlessly deploy and test your entire fleet over SSH.
 
-If you want to manually test the end-to-end connection between an IoT device and your Hub, you can run the simulated `example_device` and talk to it via the terminal.
-
-1. **Install Dependencies (on the IoT Device / Linux machine)**:
-   Ensure you have CMake, build tools, and the Protocol Buffer compiler installed:
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y cmake build-essential protobuf-compiler
-   ```
-
-2. **Start the IoT Device**:
-   Clone the repo, build it, and run the example:
-   ```bash
-   mkdir build && cd build
-   cmake .. && make
-   ./example_device
-   ```
-   *(The device is now running and listening on port 5000).*
-
-3. **Run the Hub Adapter and Talk to It**:
-   On your local machine, run the Hub Adapter and connect to your device's IP address:
-   ```bash
-   python3 hub_adapter/adapter.py 192.168.1.133 5000
-   ```
-   The terminal will wait for your standard input. Paste this standard MCP JSON-RPC request and hit Enter:
-   ```json
-   {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "ManualTest", "version": "1.0"}}}
-   ```
-   *You will instantly see the binary protobuf response from the C++ device converted back into JSON and printed to your screen!*
-
-### 5. Automated Deployment & Testing (Raspberry Pi)
-
-For rapid iteration on Linux-based IoT devices like a Raspberry Pi, we have included automated Python scripts to seamlessly deploy and test your device over SSH.
-
-1. **Setup the Deployment Script**:
-   Open `deploy.py` and modify the top variables to match your Raspberry Pi's credentials:
-   ```python
-   host = "192.168.1.133"
-   user = "pi"
-   password = "yourpassword"
-   ```
-
-2. **Deploy the Code**:
-   On your local machine, simply run:
+1. **Deploy a Massive Fleet**:
+   On your local machine, run the deploy script with the MQTT flag:
    ```bash
    pip install paramiko scp
-   python3 deploy.py
+   python3 deploy.py --mqtt
    ```
-   *This script automatically compresses the local codebase, transfers it over SSH, installs required dependencies (`cmake`, `protobuf-compiler`), compiles the C++ codebase via nanopb, and starts the `example_device` simulator securely in the background.*
-
-3. **Run the Automated Hub Simulator**:
-   Ensure you update the IP address inside `test_hub.py` to match your Raspberry Pi. Then, execute the test script on your local machine:
-   ```bash
-   python3 test_hub.py
-   ```
-   *The script automatically spawns the Hub Adapter, connects via Wi-Fi to your IoT device, performs an MCP initialization handshake, queries the available tools, and prints the raw JSON response!*
+   *This automatically installs `libmosquitto-dev` on the Pi, compiles the C++ server, and simultaneously spawns 5 separate background IoT daemons (`livingroom-light`, `kitchen-thermostat`, etc.) to prove the massive concurrency capabilities of the Hub Adapter.*
 
 ---
 
@@ -189,6 +139,6 @@ For rapid iteration on Linux-based IoT devices like a Raspberry Pi, we have incl
 
 - `/proto/`: Contains `mcp.proto`, the binary specification of the Model Context Protocol.
 - `/include/micro_mcp/`: The public C++ headers.
-- `/src/`: The C++ implementations and generated nanopb serialization code.
-- `/hub_adapter/`: The Python proxy that bridges the IoT device to your AI Agent.
+- `/src/`: The C++ implementations, Transports (TCP/MQTT), and generated nanopb code.
+- `/hub_adapter/`: The Python asyncio proxies (`tcp_adapter.py`, `mqtt_adapter.py`, `mcp_aggregator.py`).
 - `/examples/`: Simulated examples of how to run the library.
