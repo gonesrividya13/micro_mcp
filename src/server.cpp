@@ -74,7 +74,7 @@ void Server::send_error(int32_t id, const std::string& message) {
     micro_mcp_McpMessage res = micro_mcp_McpMessage_init_zero;
     res.id = id;
     res.which_message_type = micro_mcp_McpMessage_error_message_tag;
-    strncpy(res.error_message, message.c_str(), sizeof(res.error_message) - 1);
+    strncpy(res.message_type.error_message, message.c_str(), sizeof(res.message_type.error_message) - 1);
     send_message(res);
 }
 
@@ -105,9 +105,9 @@ void Server::handle_init(const micro_mcp_McpMessage& req) {
     micro_mcp_McpMessage res = micro_mcp_McpMessage_init_zero;
     res.id = req.id;
     res.which_message_type = micro_mcp_McpMessage_init_res_tag;
-    strncpy(res.init_res.protocol_version, req.init_req.protocol_version, sizeof(res.init_res.protocol_version) - 1);
-    strncpy(res.init_res.server_name, name_.c_str(), sizeof(res.init_res.server_name) - 1);
-    strncpy(res.init_res.server_version, version_.c_str(), sizeof(res.init_res.server_version) - 1);
+    strncpy(res.message_type.init_res.protocol_version, req.message_type.init_req.protocol_version, sizeof(res.message_type.init_res.protocol_version) - 1);
+    strncpy(res.message_type.init_res.server_name, name_.c_str(), sizeof(res.message_type.init_res.server_name) - 1);
+    strncpy(res.message_type.init_res.server_version, version_.c_str(), sizeof(res.message_type.init_res.server_version) - 1);
     send_message(res);
 }
 
@@ -116,28 +116,28 @@ void Server::handle_list_tools(const micro_mcp_McpMessage& req) {
     res.id = req.id;
     res.which_message_type = micro_mcp_McpMessage_list_tools_res_tag;
     
-    res.list_tools_res.tools_count = std::min(tools_.size(), (size_t)10);
-    for (size_t i = 0; i < res.list_tools_res.tools_count; ++i) {
-        strncpy(res.list_tools_res.tools[i].name, tools_[i].name.c_str(), sizeof(res.list_tools_res.tools[i].name) - 1);
-        strncpy(res.list_tools_res.tools[i].description, tools_[i].description.c_str(), sizeof(res.list_tools_res.tools[i].description) - 1);
-        strncpy(res.list_tools_res.tools[i].input_schema_json, tools_[i].input_schema_json.c_str(), sizeof(res.list_tools_res.tools[i].input_schema_json) - 1);
+    res.message_type.list_tools_res.tools_count = std::min(tools_.size(), (size_t)10);
+    for (size_t i = 0; i < res.message_type.list_tools_res.tools_count; ++i) {
+        strncpy(res.message_type.list_tools_res.tools[i].name, tools_[i].name.c_str(), sizeof(res.message_type.list_tools_res.tools[i].name) - 1);
+        strncpy(res.message_type.list_tools_res.tools[i].description, tools_[i].description.c_str(), sizeof(res.message_type.list_tools_res.tools[i].description) - 1);
+        strncpy(res.message_type.list_tools_res.tools[i].input_schema_json, tools_[i].input_schema_json.c_str(), sizeof(res.message_type.list_tools_res.tools[i].input_schema_json) - 1);
     }
     
     send_message(res);
 }
 
 void Server::handle_call_tool(const micro_mcp_McpMessage& req) {
-    std::string target_name = req.call_tool_req.name;
+    std::string target_name = req.message_type.call_tool_req.name;
     
     for (const auto& tool : tools_) {
         if (tool.name == target_name) {
-            std::string result = tool.handler(req.call_tool_req.arguments_json);
+            std::string result = tool.handler(req.message_type.call_tool_req.arguments_json);
             
             micro_mcp_McpMessage res = micro_mcp_McpMessage_init_zero;
             res.id = req.id;
             res.which_message_type = micro_mcp_McpMessage_call_tool_res_tag;
-            res.call_tool_res.is_error = false;
-            strncpy(res.call_tool_res.content_text, result.c_str(), sizeof(res.call_tool_res.content_text) - 1);
+            res.message_type.call_tool_res.is_error = false;
+            strncpy(res.message_type.call_tool_res.content_text, result.c_str(), sizeof(res.message_type.call_tool_res.content_text) - 1);
             
             send_message(res);
             return;
@@ -152,19 +152,19 @@ void Server::handle_list_resources(const micro_mcp_McpMessage& req) {
     res.id = req.id;
     res.which_message_type = micro_mcp_McpMessage_list_resources_res_tag;
     
-    res.list_resources_res.resources_count = std::min(resources_.size(), (size_t)10);
-    for (size_t i = 0; i < res.list_resources_res.resources_count; ++i) {
-        strncpy(res.list_resources_res.resources[i].uri, resources_[i].uri.c_str(), sizeof(res.list_resources_res.resources[i].uri) - 1);
-        strncpy(res.list_resources_res.resources[i].name, resources_[i].name.c_str(), sizeof(res.list_resources_res.resources[i].name) - 1);
-        strncpy(res.list_resources_res.resources[i].description, resources_[i].description.c_str(), sizeof(res.list_resources_res.resources[i].description) - 1);
-        strncpy(res.list_resources_res.resources[i].mime_type, resources_[i].mime_type.c_str(), sizeof(res.list_resources_res.resources[i].mime_type) - 1);
+    res.message_type.list_resources_res.resources_count = std::min(resources_.size(), (size_t)10);
+    for (size_t i = 0; i < res.message_type.list_resources_res.resources_count; ++i) {
+        strncpy(res.message_type.list_resources_res.resources[i].uri, resources_[i].uri.c_str(), sizeof(res.message_type.list_resources_res.resources[i].uri) - 1);
+        strncpy(res.message_type.list_resources_res.resources[i].name, resources_[i].name.c_str(), sizeof(res.message_type.list_resources_res.resources[i].name) - 1);
+        strncpy(res.message_type.list_resources_res.resources[i].description, resources_[i].description.c_str(), sizeof(res.message_type.list_resources_res.resources[i].description) - 1);
+        strncpy(res.message_type.list_resources_res.resources[i].mime_type, resources_[i].mime_type.c_str(), sizeof(res.message_type.list_resources_res.resources[i].mime_type) - 1);
     }
     
     send_message(res);
 }
 
 void Server::handle_read_resource(const micro_mcp_McpMessage& req) {
-    std::string target_uri = req.read_resource_req.uri;
+    std::string target_uri = req.message_type.read_resource_req.uri;
     
     for (const auto& res_def : resources_) {
         if (res_def.uri == target_uri) {
@@ -173,7 +173,7 @@ void Server::handle_read_resource(const micro_mcp_McpMessage& req) {
             micro_mcp_McpMessage res = micro_mcp_McpMessage_init_zero;
             res.id = req.id;
             res.which_message_type = micro_mcp_McpMessage_read_resource_res_tag;
-            strncpy(res.read_resource_res.contents_text, content.c_str(), sizeof(res.read_resource_res.contents_text) - 1);
+            strncpy(res.message_type.read_resource_res.contents_text, content.c_str(), sizeof(res.message_type.read_resource_res.contents_text) - 1);
             
             send_message(res);
             return;

@@ -125,6 +125,64 @@ If you aren't using mDNS, you can easily hardcode the IP and port:
       ]
 ```
 
+### 4. Try it Manually (Example Deployment)
+
+If you want to manually test the end-to-end connection between an IoT device and your Hub, you can run the simulated `example_device` and talk to it via the terminal.
+
+1. **Install Dependencies (on the IoT Device / Linux machine)**:
+   Ensure you have CMake, build tools, and the Protocol Buffer compiler installed:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y cmake build-essential protobuf-compiler
+   ```
+
+2. **Start the IoT Device**:
+   Clone the repo, build it, and run the example:
+   ```bash
+   mkdir build && cd build
+   cmake .. && make
+   ./example_device
+   ```
+   *(The device is now running and listening on port 5000).*
+
+3. **Run the Hub Adapter and Talk to It**:
+   On your local machine, run the Hub Adapter and connect to your device's IP address:
+   ```bash
+   python3 hub_adapter/adapter.py 192.168.1.133 5000
+   ```
+   The terminal will wait for your standard input. Paste this standard MCP JSON-RPC request and hit Enter:
+   ```json
+   {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "ManualTest", "version": "1.0"}}}
+   ```
+   *You will instantly see the binary protobuf response from the C++ device converted back into JSON and printed to your screen!*
+
+### 5. Automated Deployment & Testing (Raspberry Pi)
+
+For rapid iteration on Linux-based IoT devices like a Raspberry Pi, we have included automated Python scripts to seamlessly deploy and test your device over SSH.
+
+1. **Setup the Deployment Script**:
+   Open `deploy.py` and modify the top variables to match your Raspberry Pi's credentials:
+   ```python
+   host = "192.168.1.133"
+   user = "pi"
+   password = "yourpassword"
+   ```
+
+2. **Deploy the Code**:
+   On your local machine, simply run:
+   ```bash
+   pip install paramiko scp
+   python3 deploy.py
+   ```
+   *This script automatically compresses the local codebase, transfers it over SSH, installs required dependencies (`cmake`, `protobuf-compiler`), compiles the C++ codebase via nanopb, and starts the `example_device` simulator securely in the background.*
+
+3. **Run the Automated Hub Simulator**:
+   Ensure you update the IP address inside `test_hub.py` to match your Raspberry Pi. Then, execute the test script on your local machine:
+   ```bash
+   python3 test_hub.py
+   ```
+   *The script automatically spawns the Hub Adapter, connects via Wi-Fi to your IoT device, performs an MCP initialization handshake, queries the available tools, and prints the raw JSON response!*
+
 ---
 
 ## 📁 Directory Layout
