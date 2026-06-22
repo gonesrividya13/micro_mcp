@@ -102,6 +102,7 @@ class McpAggregator:
         resp = {"jsonrpc": "2.0", "id": original_agent_id}
 
         if which == "call_tool_res":
+            print(f"Aggregator: Received response from device '{device_id}' for tool call.", file=sys.stderr)
             resp["result"] = {
                 "isError": res_msg.call_tool_res.is_error,
                 "content": [{"type": "text", "text": res_msg.call_tool_res.content_text}]
@@ -164,6 +165,8 @@ class McpAggregator:
                 return
             
             device_id, actual_tool = parts[0], parts[1]
+            
+            print(f"Aggregator: Routing tool call '{actual_tool}' to device '{device_id}'...", file=sys.stderr)
             
             # Route to device
             msg = mcp_pb2.McpMessage()

@@ -49,11 +49,11 @@ echo '{password}' | sudo -S apt-get install -y {apt_deps} &&
 rm -rf build && mkdir build && cd build &&
 cmake {cmake_args} .. && make -j4
 killall example_device_mqtt 2>/dev/null || true
-nohup ./example_device_mqtt livingroom-light > /dev/null 2>&1 &
-nohup ./example_device_mqtt kitchen-thermostat > /dev/null 2>&1 &
-nohup ./example_device_mqtt garage-door > /dev/null 2>&1 &
-nohup ./example_device_mqtt front-door-lock > /dev/null 2>&1 &
-nohup ./example_device_mqtt backyard-motion-sensor > /dev/null 2>&1 &
+nohup ./example_device_mqtt livingroom-light >> device.log 2>&1 &
+nohup ./example_device_mqtt kitchen-thermostat >> device.log 2>&1 &
+nohup ./example_device_mqtt garage-door >> device.log 2>&1 &
+nohup ./example_device_mqtt front-door-lock >> device.log 2>&1 &
+nohup ./example_device_mqtt backyard-motion-sensor >> device.log 2>&1 &
 """
 else:
     cmd = f"""

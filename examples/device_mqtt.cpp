@@ -6,15 +6,17 @@
 using namespace micro_mcp;
 
 bool led_state = false;
-int temperature = 22;
+float temperature = 22.0;
 
 std::string toggle_led(const std::string& args_json) {
     led_state = !led_state;
-    std::cout << "[MQTT Device] LED toggled " << (led_state ? "ON" : "OFF") << std::endl;
+    std::cout << "[Device] toggle_led invoked! New state: " << (led_state ? "ON" : "OFF") << std::endl;
     return "{\"status\": \"success\", \"state\": " + std::to_string(led_state) + "}";
 }
 
 std::string get_temperature() {
+    temperature += 0.1;
+    std::cout << "[Device] get_temperature invoked! Returning: " << temperature << "C" << std::endl;
     return "{\"temperature\": " + std::to_string(temperature) + ", \"unit\": \"C\"}";
 }
 
