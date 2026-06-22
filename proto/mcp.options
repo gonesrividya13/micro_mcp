@@ -1,0 +1,26 @@
+micro_mcp.InitializeRequest.protocol_version max_size:16
+micro_mcp.InitializeRequest.client_name max_size:32
+micro_mcp.InitializeRequest.client_version max_size:16
+micro_mcp.InitializeResponse.protocol_version max_size:16
+micro_mcp.InitializeResponse.server_name max_size:32
+micro_mcp.InitializeResponse.server_version max_size:16
+
+micro_mcp.Tool.name max_size:32
+micro_mcp.Tool.description max_size:64
+micro_mcp.Tool.input_schema_json max_size:128
+micro_mcp.ListToolsResponse.tools max_count:10
+
+micro_mcp.CallToolRequest.name max_size:32
+micro_mcp.CallToolRequest.arguments_json max_size:256
+micro_mcp.CallToolResponse.content_text max_size:256
+
+micro_mcp.Resource.uri max_size:64
+micro_mcp.Resource.name max_size:32
+micro_mcp.Resource.description max_size:64
+micro_mcp.Resource.mime_type max_size:32
+micro_mcp.ListResourcesResponse.resources max_count:10
+
+micro_mcp.ReadResourceRequest.uri max_size:64
+micro_mcp.ReadResourceResponse.contents_text max_size:512
+
+micro_mcp.McpMessage.error_message max_size:128

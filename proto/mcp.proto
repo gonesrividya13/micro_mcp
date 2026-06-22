@@ -1,0 +1,76 @@
+syntax = "proto3";
+package micro_mcp;
+
+message InitializeRequest {
+    string protocol_version = 1;
+    string client_name = 2;
+    string client_version = 3;
+}
+
+message InitializeResponse {
+    string protocol_version = 1;
+    string server_name = 2;
+    string server_version = 3;
+}
+
+message Tool {
+    string name = 1;
+    string description = 2;
+    string input_schema_json = 3;
+}
+
+message ListToolsResponse {
+    repeated Tool tools = 1;
+}
+
+message CallToolRequest {
+    string name = 1;
+    string arguments_json = 2;
+}
+
+message CallToolResponse {
+    string content_text = 1;
+    bool is_error = 2;
+}
+
+message Resource {
+    string uri = 1;
+    string name = 2;
+    string description = 3;
+    string mime_type = 4;
+}
+
+message ListResourcesResponse {
+    repeated Resource resources = 1;
+}
+
+message ReadResourceRequest {
+    string uri = 1;
+}
+
+message ReadResourceResponse {
+    string contents_text = 1;
+}
+
+message McpMessage {
+    int32 id = 1; // JSON-RPC message ID
+
+    oneof message_type {
+        InitializeRequest init_req = 2;
+        InitializeResponse init_res = 3;
+
+        bool list_tools_req = 4; // True to request
+        ListToolsResponse list_tools_res = 5;
+
+        CallToolRequest call_tool_req = 6;
+        CallToolResponse call_tool_res = 7;
+
+        bool list_resources_req = 8;
+        ListResourcesResponse list_resources_res = 9;
+
+        ReadResourceRequest read_resource_req = 10;
+        ReadResourceResponse read_resource_res = 11;
+
+        string error_message = 15;
+    }
+}
